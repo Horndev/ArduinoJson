@@ -71,6 +71,11 @@ class JsonVariantBase : public Internals::JsonPrintable<TImpl> {
     return impl()->template as<T>();
   }
 
+  template <typename T>
+  FORCE_INLINE bool is() const {
+    return impl()->template is<T>();
+  }
+
   // Mimics an array or an object.
   // Returns the size of the array or object if the variant has that type.
   // Returns 0 if the variant is neither an array nor an object
@@ -134,7 +139,20 @@ class JsonVariantBase : public Internals::JsonPrintable<TImpl> {
   // T = JsonVariant
   template <typename T>
   typename TypeTraits::EnableIf<TypeTraits::IsVariant<T>::value, bool>::type
-  operator==(const T &) const {
+  operator==(const T &comparand) const {
+    using namespace Internals;
+    if (is<bool>() && comparand.is<bool>())
+      return as<bool>() == comparand.as<bool>();
+    if (is<JsonFloat>() && comparand.is<JsonFloat>())
+      return as<JsonFloat>() == comparand.as<JsonFloat>();
+    if (is<JsonInteger>() && comparand.is<JsonInteger>())
+      return as<JsonInteger>() == comparand.as<JsonInteger>();
+    if (is<char *>() && comparand.is<char *>())
+      return !strcmp(as<char *>(), comparand.as<char *>());
+    if (is<JsonArray>() && comparand.is<JsonArray>())
+      return as<JsonArray>() == comparand.as<JsonArray>();
+    if (is<JsonObject>() && comparand.is<JsonObject>())
+      return as<JsonObject>() == comparand.as<JsonObject>();
     return false;
   }
   //
