@@ -10,6 +10,7 @@
 #include "Data/JsonVariantAs.hpp"
 #include "Polyfills/attributes.hpp"
 #include "Serialization/JsonPrintable.hpp"
+#include "TypeTraits/IsArray.hpp"
 
 namespace ArduinoJson {
 
@@ -17,6 +18,13 @@ namespace ArduinoJson {
 class JsonArraySubscript;
 template <typename TKey>
 class JsonObjectSubscript;
+template <typename TImpl>
+class JsonVariantBase;
+
+namespace TypeTraits {
+template <typename T>
+struct IsVariant : IsBaseOf<JsonVariantBase<T>, T> {};
+}
 
 template <typename TImpl>
 class JsonVariantBase : public Internals::JsonPrintable<TImpl> {
@@ -119,6 +127,65 @@ class JsonVariantBase : public Internals::JsonPrintable<TImpl> {
       const JsonObjectSubscript<const TString *> >::type
   operator[](const TString *key) const {
     return as<JsonObject>()[key];
+  }
+
+  // bool operator==(T)
+  //
+  // T = JsonVariant
+  template <typename T>
+  typename TypeTraits::EnableIf<TypeTraits::IsVariant<T>::value, bool>::type
+  operator==(const T &) const {
+    return false;
+  }
+  //
+  // T = const char*, const char[N], const FlashStringHelper*
+  template <typename T>
+  typename TypeTraits::EnableIf<TypeTraits::IsString<T *>::value, bool>::type
+  operator==(const T *comparand) const {
+    return Internals::StringTraits<T *>::equals(comparand, as<char *>());
+  }
+  //
+  // T = const std::string&, const String&
+  template <typename T>
+  typename TypeTraits::EnableIf<TypeTraits::IsString<T>::value, bool>::type
+  operator==(const T &comparand) const {
+    return Internals::StringTraits<T>::equals(comparand, as<char *>());
+  }
+  //
+  // T = bool, int, double
+  template <typename T>
+  typename TypeTraits::EnableIf<!TypeTraits::IsString<T>::value &&
+                                    !TypeTraits::IsArray<T>::value &&
+                                    !TypeTraits::IsVariant<T>::value,
+                                bool>::type
+  operator==(const T &comparand) const {
+    return as<T>() == comparand;
+  }
+
+  // bool operator!=(T)
+  //
+  // T = const char*, const char[N], const FlashStringHelper*
+  template <typename T>
+  typename TypeTraits::EnableIf<TypeTraits::IsString<T *>::value, bool>::type
+  operator!=(const T *comparand) const {
+    return !Internals::StringTraits<T *>::equals(comparand, as<char *>());
+  }
+  //
+  // T = const std::string&, const String&
+  template <typename T>
+  typename TypeTraits::EnableIf<TypeTraits::IsString<T>::value, bool>::type
+  operator!=(const T &comparand) const {
+    return !Internals::StringTraits<T>::equals(comparand, as<char *>());
+  }
+  //
+  // T = bool, int, double
+  template <typename T>
+  typename TypeTraits::EnableIf<!TypeTraits::IsString<T>::value &&
+                                    !TypeTraits::IsArray<T>::value &&
+                                    !TypeTraits::IsVariant<T>::value,
+                                bool>::type
+  operator!=(const T &comparand) const {
+    return as<T>() != comparand;
   }
 
  private:
